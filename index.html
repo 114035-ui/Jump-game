@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>超級范寬兄弟：谿山行旅篇</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <style>
+        body {
+            margin: 0;
+            background-color: #222;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: "Microsoft JhengHei", sans-serif;
+            color: white;
+            flex-direction: column;
+        }
+        canvas {
+            border: 5px solid #5d4037;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background-color: #e6dcc3; /* 絹本仿古色 */
+        }
+        #ui {
+            margin-top: 10px;
+            text-align: center;
+        }
+        .instructions {
+            font-size: 14px;
+            color: #aaa;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas" width="800" height="450"></canvas>
+    
+    <div id="ui">
+        <h2 id="status">尋找藏在樹葉中的「范寬」簽名！</h2>
+        <div class="instructions">操控：左右方向鍵移動 | 空白鍵跳躍 | R 重來</div>
+    </div>
+
+<script src="game.js"></script>
+</body>
+</html>

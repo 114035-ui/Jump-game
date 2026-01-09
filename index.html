@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>超級范寬兄弟：谿山行旅篇</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#222">
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest">
+
+<style>
+body {
+    margin: 0;
+    background-color: #222;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: "Microsoft JhengHei", sans-serif;
+    color: white;
+    flex-direction: column;
+}
+
+canvas {
+    border: 5px solid #5d4037;
+    background-color: #e6dcc3;
+    max-width: 100%;
+    height: auto;
+}
+
+#ui {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.instructions {
+    font-size: 14px;
+    color: #aaa;
+}
+
+/* ===== 手機控制 ===== */
+#mobile-controls {
+    position: fixed;
+    bottom: 15px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 20px;
+    box-sizing: border-box;
+}
+
+.control-btn {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    border: 2px solid rgba(255,255,255,0.6);
+    color: white;
+    font-size: 26px;
+    font-weight: bold;
+    touch-action: none;
+}
+
+.control-btn:active {
+    background: rgba(255,255,255,0.45);
+}
+
+@media (min-width: 900px) {
+    #mobile-controls { display: none; }
+}
+</style>
+</head>
+
+<body>
+
+<h1>?? Hello World!</h1>
+
+<canvas id="gameCanvas" width="800" height="450"></canvas>
+
+<div id="ui">
+    <h2 id="status">尋找藏在樹葉中的「范寬」簽名！</h2>
+    <div class="instructions">← → 移動 ｜ Space / ? 跳躍 ｜ R 重來</div>
+</div>
+
+<!-- 手機按鈕 -->
+<div id="mobile-controls">
+    <div>
+        <button class="control-btn" id="btn-left">?</button>
+        <button class="control-btn" id="btn-right">?</button>
+    </div>
+    <div>
+        <button class="control-btn" id="btn-jump">?</button>
+    </div>
+</div>
+
+<script>
+/* ===== Service Worker 註冊 ===== */
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js');
+}
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const statusText = document.getElementById('status');
+
+let gameState = "PLAYING";
+
+const gravity = 0.5;
+const friction = 0.8;
+
+const player = {
+    x: 50, y: 300, width: 30, height: 40,
+    dx: 0, dy: 0,
+    speed: 5,
+    jumpPower: -12,
+    grounded: false,
+    color: '#d32f2f'
+};
+
+const platforms = [
+    { x: 0, y: 400, w: 800, h: 50 },
+    { x: 200, y: 340, w: 60, h: 60 },
+    { x: 350, y: 280, w: 80, h: 20 },
+    { x: 700, y: 350, w: 100, h: 100 }
+];
+
+const donkeys = [
+    { x: 450, y: 250, w: 50, h: 20, dx: 1, minX: 450, maxX: 600 },
+    { x: 550, y: 200, w: 50, h: 20, dx: -1.5, minX: 500, maxX: 650 }
+];
+
+const goal = { x: 730, y: 240, w: 40, h: 40, hit: false };
+
+const keys = {};
+
+/* ===== 鍵盤 ===== */
+window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (e.code === 'Space' && player.grounded) jump();
+    if (e.code === 'KeyR') resetGame();
+});
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+/* ===== 手機觸控 ===== */
+function bindTouch(id, key) {
+    const btn = document.getElementById(id);
+    btn.addEventListener('touchstart', e => {
+        e.preventDefault();
+        keys[key] = true;
+    });
+    btn.addEventListener('touchend', e => {
+        e.preventDefault();
+        keys[key] = false;
+    });
+}
+bindTouch('btn-left', 'ArrowLeft');
+bindTouch('btn-right', 'ArrowRight');
+
+document.getElementById('btn-jump').addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (player.grounded) jump();
+});
+
+function jump() {
+    if (gameState === "PLAYING") {
+        player.dy = player.jumpPower;
+        player.grounded = false;
+    }
+}
+
+function resetGame() {
+    player.x = 50; player.y = 300;
+    player.dx = 0; player.dy = 0;
+    goal.hit = false;
+    gameState = "PLAYING";
+    statusText.innerText = "尋找藏在樹葉中的「范寬」簽名！";
+    statusText.style.color = "white";
+}
+
+function checkCollision(c, p) {
+    if (
+        c.x < p.x + p.w &&
+        c.x + c.width > p.x &&
+        c.y + c.height > p.y &&
+        c.y + c.height < p.y + 20 &&
+        c.dy >= 0
+    ) {
+        c.dy = 0;
+        c.grounded = true;
+        c.y = p.y - c.height;
+        if (p.dx) c.x += p.dx;
+    }
+}
+
+function update() {
+    if (gameState !== "PLAYING") return;
+
+    if (keys.ArrowLeft) player.dx = -player.speed;
+    else if (keys.ArrowRight) player.dx = player.speed;
+    else player.dx *= friction;
+
+    player.dy += gravity;
+    player.x += player.dx;
+    player.y += player.dy;
+
+    player.grounded = false;
+    platforms.forEach(p => checkCollision(player, p));
+
+    donkeys.forEach(d => {
+        d.x += d.dx;
+        if (d.x < d.minX || d.x > d.maxX) d.dx *= -1;
+        checkCollision(player, d);
+    });
+
+    if (
+        player.x < goal.x + goal.w &&
+        player.x + player.width > goal.x &&
+        player.y < goal.y + goal.h &&
+        player.y + player.height > goal.y
+    ) {
+        goal.hit = true;
+        gameState = "WIN";
+        statusText.innerText = "發現真跡！「范寬」簽名現身！";
+        statusText.style.color = "#FFD700";
+    }
+}
+
+function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    ctx.fillStyle = "rgba(40,40,40,0.1)";
+    ctx.beginPath();
+    ctx.moveTo(100,450);
+    ctx.lineTo(400,50);
+    ctx.lineTo(700,450);
+    ctx.fill();
+
+    ctx.fillStyle = "#2b2b2b";
+    platforms.forEach(p => ctx.fillRect(p.x,p.y,p.w,p.h));
+
+    ctx.fillStyle = "#5d4037";
+    donkeys.forEach(d => ctx.fillRect(d.x,d.y,d.w,d.h));
+
+    if (!goal.hit) {
+        ctx.fillStyle = "#2e7d32";
+        ctx.fillRect(goal.x,goal.y,goal.w,goal.h);
+    } else {
+        ctx.fillStyle = "black";
+        ctx.font = "20px Microsoft JhengHei";
+        ctx.fillText("范寬", goal.x, goal.y + 30);
+    }
+
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x,player.y,player.width,player.height);
+    ctx.fillStyle = "white";
+    ctx.fillText("旅", player.x+7, player.y+25);
+
+    requestAnimationFrame(update);
+    requestAnimationFrame(draw);
+}
+
+update();
+draw();
+</script>
+</body>
+</html>
+
